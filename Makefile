@@ -20,7 +20,7 @@ mdflags ?= -f markdown-hard_line_breaks+yaml_metadata_block
 refs ?= $(paper).bib
 
 draft: $(paper).pdf
-	cp $(paper).pdf $(paper)_`hg tip --template "{date|shortdate}_{node|short}"`.pdf
+	cp $(paper).pdf $(paper)_`git show -s --format=%ci HEAD | awk '{print $$1}'`_`git rev-parse --short HEAD`.pdf
 
 %.pdf: %.md $(refs)
 	pandoc --standalone --template=template.latex --bibliography=$(refs) $*.md -o $*.pdf
