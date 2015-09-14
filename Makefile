@@ -25,6 +25,11 @@ draft: $(paper).pdf
 %.pdf: %.md $(refs)
 	pandoc --standalone --template=template.latex --bibliography=$(refs) $*.md -o $*.pdf
 
+%-tablet.pdf: %.md $(refs)
+	pandoc --standalone --template=template.latex --bibliography=$(refs) $*.md -o $*-tablet.pdf -V geometry:margin=0.1in -V links-as-notes=false -V papersize=a5paper -V fontsize=12pt
+
+$(paper).tex: $(paper).md $(texdeps) $(figdeps) $(refs) $(supplementary).tex template.latex
+
 %.md: %.Rmd
 	echo 'knitr::knit("$*.Rmd")' | R --vanilla
 
