@@ -8,7 +8,9 @@
 
 import sys
 import codecs
-from bibtexparser.bparser import BibTexParser
+from bibtexparser.bparser import BibTexParser, logger
+from logging import NullHandler
+logger.addHandler(NullHandler())
 
 non_local_fields = ['address',
                     'annote',
