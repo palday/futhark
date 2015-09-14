@@ -34,5 +34,5 @@ clean:
 $(refs): bib.keys
 	$(python) extractbib.py bib.keys $(library) $(refs)
 
-bib.keys: $(paper).md
-	grep @[-:_a-zA-Z0-9]* $(paper).md -oh --color=never | sort  | uniq -u | sed 's/@//g' > bib.keys
+bib.keys: $(paper).md $(library)
+	egrep '@[-:_a-zA-Z0-9.]*' $(paper).md -oh --color=never | sort -u | sed 's/@//g' > bib.keys
