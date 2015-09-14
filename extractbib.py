@@ -68,8 +68,6 @@ if __name__ == "__main__":
    used_refs = {key: refs[key] for key in keys if key in refs}
    ## Step 4 - convert the dicts back into bibtex
    refs_as_bib = [dict2bib(k, v) for (k, v) in used_refs.iteritems()]
-   #print [uk for uk in keys if uk not in used_refs]
    ## Step 5 - write the output file
    with codecs.open(out_file, 'w', 'utf-8-sig') as of:
       of.writelines(refs_as_bib)
-   #print(refs_as_bib)
