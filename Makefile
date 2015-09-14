@@ -31,8 +31,12 @@ draft: $(paper).pdf
 clean:
 	rm -rf $(paper).{pdf,html,odt,docx}
 
-$(refs): bib.keys
+$(refs): bib.keys $(library)
+ifeq ($(library),)
+	@echo "No library specified, skipping generation of new bibliography"
+else
 	$(python) extractbib.py bib.keys $(library) $(refs)
+endif
 
 bib.keys: $(paper).md $(library)
 	egrep '@[-:_a-zA-Z0-9.]*' $(paper).md -oh --color=never | sort -u | sed 's/@//g' > bib.keys
