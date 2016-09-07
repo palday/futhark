@@ -35,14 +35,22 @@ non_local_fields = ['address',
                     'series',
                     'title',
                     'url',
+                    'link',
                     'volume',
                     'year',
                   ]
 
 def dict2bib(ke,di):
-   b = "@"+di['type'].upper()+"{"+ke+",\n"
+   # it seems the type field changed between different bibtexparser versions
+   try:
+      b = "@"+di['type'].upper()+"{"+ke+",\n"
+   except KeyError:
+      b = "@"+di['ENTRYTYPE'].upper()+"{"+ke+",\n"
+
    for (k, v) in sorted(di.iteritems()):
-      if k.lower() in non_local_fields:
+      if k.lower().strip() in non_local_fields:
+         if k == 'link':
+            k = 'url'
          b += '\t' + k + ' = {'+v+'},\n'
    b += '}\n'
    return b
