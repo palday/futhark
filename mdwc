@@ -1,0 +1,150 @@
+#! /usr/bin/env bash
+
+# Copyright (c) 2016 Phillip Alday
+# 
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+# 
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+# 
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+# argument parsing adapted from http://stackoverflow.com/a/29754866/2022326
+
+getopt --test > /dev/null
+if [[ $? != 4 ]]; then
+    echo "I’m sorry, `getopt --test` failed in this environment."
+    echo "Exiting (your shell doesn't support needed functionality)."
+    exit 1
+fi
+
+SHORT=cmlLwtbh
+LONG=bytes,chars,lines,max-line-length,words,files0-from:,title,body,help
+
+# -temporarily store output to be able to check for errors
+# -activate advanced mode getopt quoting e.g. via “--options”
+# -pass arguments only via   -- "$@"   to separate them correctly
+PARSED=$(getopt --options $SHORT --longoptions $LONG --name "$0" -- "$@")
+if [[ $? != 0 ]]; then
+    # e.g. $? == 1
+    #  then getopt has complained about wrong arguments to stdout
+    exit 2
+fi
+
+# use eval with "$PARSED" to properly handle the quoting
+eval set -- "$PARSED"
+
+WCOPTS=""
+BODY=false
+TITLE=false
+
+# now enjoy the options in order and nicely split until we see --
+while true; do
+    case "$1" in
+        -c|--bytes)
+            WCOPTS="${WCOPTS} -c"
+            shift
+            ;;
+        -m|--chars)
+            WCOPTS="${WCOPTS} -m"
+            shift
+            ;;
+        -l|--lines)
+            WCOPTS="${WCOPTS} -l"
+            shift
+            ;;
+        -L|--max-line-length)
+            WCOPTS="${WCOPTS} -L"
+            shift
+            ;;
+        -w|--words)
+            WCOPTS="${WCOPTS} -w"
+            shift
+            ;;
+        --files0-from)
+            WCOPTS="${WCOPTS} --files0-from=$2"
+            shift 2
+            ;;
+        --title|-t)
+            TITLE=true            
+            shift
+            ;;
+
+        --body|-b)
+            BODY=true
+            shift
+            ;;
+        --help|-h)
+            echo "$0: wc wrapper for pandoc MarkDown files with YAML block."
+            echo            
+            echo "arguments:"            
+            echo -e "  --title, -t \t run wc on title line in initial YAML block"
+            echo -e "              \t (note: will not work on multiline titles)"        
+            echo -e "  --body, -b  \t run wc on body (everything after initial YAML block)"
+            echo
+            echo "wc arguments supported: (see man wc for more details)"
+            echo "  --bytes, -c"            
+            echo "  --chars, -m"
+            echo "  --words, -w"
+            echo "  --lines, -l"
+            echo "  --max-line-length, -L"
+            echo "  --files0-from"
+            echo                    
+            echo "Default is wc on just the body (useful for situations with length limits such as abstracts)" | fold -s
+            exit
+            ;;
+        --) # end of options             
+            shift
+            break
+            ;;
+        *)
+            echo "Unrecognized option: $1"
+            echo "(How did you get here? Please consider reporting a bug)"
+            exit 3
+            ;;
+    esac
+done
+
+# handle non-option arguments
+
+# set default behavior to report body stats
+if [[ "$TITLE" = false && "$BODY" = false ]]; then
+    BODY=true
+fi
+
+# if there are no arguments, then something is being piped in, so we need to handle that
+# the temporary file is not terribly efficient, but it's easy and we expect this to be a corner case
+if [[ $# == 0 ]]; then
+    TMP=$(mktemp)
+    tee $TMP 1>/dev/null
+    eval set -- "$TMP" 
+fi
+
+while [[ $# != 0 ]]; do
+    # don't display the gibberish temporary filename
+    if [ "$1" != "$TMP" ]; then
+        FNAME=$1
+    else
+        FNAME=""
+    fi
+        
+
+    if [ "$TITLE" = true ]; then
+        sed -Ee '/^---\w*$/,/^(---|...)$/!d' $1 | egrep '^title:' | awk -e'{$1="";print $0}'| wc $WCOPTS | awk -e '{print $0, "'${FNAME}'", "(title)"}'
+    fi
+    if [ "$BODY" = true ]; then
+        sed -Ee '/^---\w*$/,/^(---|...)\w*$/d' $1 | wc $WCOPTS | awk -e '{print $0, "'${FNAME}'", "(body)"}'
+    fi
+    shift 
+done
+
+# clean up the tempfile if necessary
+if [ -e "$TMP" ]; then
+    rm "$TMP"
+fi
