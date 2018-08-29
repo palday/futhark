@@ -10,9 +10,10 @@ Requirements:
 - `make`
 - [Git](http://git-scm.com/) ([Mercurial version available on Bitbucket](https://bitbucket.org/palday/futhark))
 - [`pandoc`](http://johnmacfarlane.net/pandoc/)
--  [Python](https://www.python.org/)
-    - currently using Python 2.x because of
-    - [BibTexParser](http://bibtexparser.readthedocs.org/en/latest/install.html)
+- [Python](https://www.python.org/)
+    - note that BibTexParser will work with Python 2 or 3, but the md-diff script
+      will not work unmodified on Python 2.
+- [BibTexParser](http://bibtexparser.readthedocs.org/en/latest/install.html)
 
 License:
 My contributions are currently GPLv2, but I am building on the work of others, whose licensing conditions aren't yet clear. The LaTeX template is a modification of the standard pandoc template and is thus subject to [the same restrictions](https://github.com/jgm/pandoc-templates).
