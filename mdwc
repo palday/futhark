@@ -1,17 +1,17 @@
 #! /usr/bin/env bash
 
-# Copyright (c) 2016 Phillip Alday
-# 
+# Copyright (c) 2016, 2018 Phillip Alday
+#
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation, either version 3 of the License, or
 # (at your option) any later version.
-# 
+#
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -19,13 +19,13 @@
 
 getopt --test > /dev/null
 if [[ $? != 4 ]]; then
-    echo "I’m sorry, `getopt --test` failed in this environment."
+    echo "I'm sorry, 'getopt --test' failed in this environment."
     echo "Exiting (your shell doesn't support needed functionality)."
     exit 1
 fi
 
-SHORT=cmlLwtbh
-LONG=bytes,chars,lines,max-line-length,words,files0-from:,title,body,help
+SHORT=cmlLwtbhf:k:
+LONG=bytes,chars,lines,max-line-length,words,files0-from:,title,body,help,field:,key:
 
 # -temporarily store output to be able to check for errors
 # -activate advanced mode getopt quoting e.g. via “--options”
@@ -43,6 +43,7 @@ eval set -- "$PARSED"
 WCOPTS=""
 BODY=false
 TITLE=false
+FIELDS=""
 
 # now enjoy the options in order and nicely split until we see --
 while true; do
@@ -72,34 +73,47 @@ while true; do
             shift 2
             ;;
         --title|-t)
-            TITLE=true            
+            TITLE=true
             shift
             ;;
-
+        --field|--key|-f|-k)
+            FIELDS="${FIELDS},$2"
+            shift 2
+            ;;
         --body|-b)
             BODY=true
             shift
             ;;
         --help|-h)
             echo "$0: wc wrapper for pandoc MarkDown files with YAML block."
-            echo            
-            echo "arguments:"            
-            echo -e "  --title, -t \t run wc on title line in initial YAML block"
-            echo -e "              \t (note: will not work on multiline titles)"        
-            echo -e "  --body, -b  \t run wc on body (everything after initial YAML block)"
+            echo
+            echo "arguments:"
+            echo -e "  --title, -t   \t run wc on title line in initial YAML block"
+            echo -e "                \t (note: will not work on multiline titles)"
+            echo
+            echo -e "  --body,  -b   \t run wc on body (everything after initial YAML block)"
+            echo
+            echo -e "  --field, -f   \t run wc on specified top-level YAML field"
+            echo -e "                \t Note: this will extract multiline fields and can be"
+            echo -e "                \t used to extract multliline titles. This method is "
+            echo -e "                \t slower, which may be come apparant when applied to "
+            echo -e "                \t large (numbers of) files."
+            echo
+            echo -e "  --key,   -k   \t synonym for --field. One of these may be removed"
+            echo -e "                \t in the future"
             echo
             echo "wc arguments supported: (see man wc for more details)"
-            echo "  --bytes, -c"            
+            echo "  --bytes, -c"
             echo "  --chars, -m"
             echo "  --words, -w"
             echo "  --lines, -l"
             echo "  --max-line-length, -L"
             echo "  --files0-from"
-            echo                    
+            echo
             echo "Default is wc on just the body (useful for situations with length limits such as abstracts)" | fold -s
             exit
             ;;
-        --) # end of options             
+        --) # end of options
             shift
             break
             ;;
@@ -114,7 +128,7 @@ done
 # handle non-option arguments
 
 # set default behavior to report body stats
-if [[ "$TITLE" = false && "$BODY" = false ]]; then
+if [[ "$TITLE" = false && "$BODY" = false && "$FIELDS" = "" ]]; then
     BODY=true
 fi
 
@@ -123,7 +137,7 @@ fi
 if [[ $# == 0 ]]; then
     TMP=$(mktemp)
     tee $TMP 1>/dev/null
-    eval set -- "$TMP" 
+    eval set -- "$TMP"
 fi
 
 while [[ $# != 0 ]]; do
@@ -133,7 +147,24 @@ while [[ $# != 0 ]]; do
     else
         FNAME=""
     fi
-        
+
+    if [ "$FIELDS" ]; then
+
+        for key in $(echo ${FIELDS} | tr ", " "\n\n")
+        do
+            value=$(sed -Ee '/^---\w*$/,/^(---|...)$/!d' $1 | egrep "^${key}" | awk -e'{$1="";print $0}')
+            # trim whitespace
+            value=$(echo $value| xargs echo -n)
+
+            if [[ "$value" = "|" ]]; then
+                # extract the relevant chunk then
+                # remove first empty line and last line, which is the next key
+                value=$(sed -Ee '/^---\w*$/,/^(---|...)$/!d' $1 | sed -Ee "/^${key}/,/^[a-z]/!d" | sed -e '1d;$d')
+            fi
+
+            echo $value | wc $WCOPTS | awk -e '{print $0, "'${FNAME}'", "('${key}')"}'
+        done
+    fi
 
     if [ "$TITLE" = true ]; then
         sed -Ee '/^---\w*$/,/^(---|...)$/!d' $1 | egrep '^title:' | awk -e'{$1="";print $0}'| wc $WCOPTS | awk -e '{print $0, "'${FNAME}'", "(title)"}'
@@ -141,7 +172,7 @@ while [[ $# != 0 ]]; do
     if [ "$BODY" = true ]; then
         sed -Ee '/^---\w*$/,/^(---|...)\w*$/d' $1 | wc $WCOPTS | awk -e '{print $0, "'${FNAME}'", "(body)"}'
     fi
-    shift 
+    shift
 done
 
 # clean up the tempfile if necessary
