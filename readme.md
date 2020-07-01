@@ -8,7 +8,7 @@ This was inspired by and expands upon the ideas in [this blog post](http://timot
 Requirements:
 
 - `make`
-- [Git](http://git-scm.com/) ([Mercurial version available on Bitbucket](https://bitbucket.org/palday/futhark))
+- [Git](http://git-scm.com/) ([Mercurial version available on SourceHut](https://hg.sr.ht/~palday/futhark))
 - [`pandoc`](http://johnmacfarlane.net/pandoc/)
 - [Python](https://www.python.org/)
     - note that BibTexParser will work with Python 2 or 3, but the md-diff script
