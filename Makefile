@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Phillip Alday
+# Copyright (c) 2014, 2021 Phillip Alday
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -36,12 +36,17 @@ $(paper).tex: $(paper).md $(texdeps) $(figdeps) $(refs) $(supplementary).tex tem
 clean:
 	rm -rf $(paper).{pdf,html,odt,docx}
 
-$(refs): bib.keys $(library)
+$(refs): bib.keys.md5 $(library)
 ifeq ($(library),)
 	@echo "No library specified, skipping generation of new bibliography"
 else
 	$(python) extractbib.py bib.keys $(library) $(refs)
 endif
+
+bib.keys.md5: bib.keys
+# if the content of bib.keys hasn't changed and the bibtex output exists, then
+# don't touch the md5 file
+	(md5sum --check --status bib.keys.md5 && [ -f $(refs) ] ) || ( md5sum bib.keys > bib.keys.md5 )
 
 bib.keys: $(paper).md $(library)
 	egrep '@[-:_a-zA-Z0-9.]*' $(paper).md -oh --color=never | sort -u | sed 's/@//g' > bib.keys
