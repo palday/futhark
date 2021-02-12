@@ -1,18 +1,38 @@
 #! /usr/bin/env python
-# s. https://gist.github.com/palday/1ff12dd110255541df0f
-# adapted from
-# GitHub Gist https://gist.github.com/tpoisot/7406955
-# don't forget to install bibtexparser: http://bibtexparser.readthedocs.org/en/latest/install.html
-# or with pip:
-# pip install bibtexparser
+# Copyright (c) 2014-2021, Phillip Alday
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
 
+import argparse
 import sys
-import codecs
-from bibtexparser.bparser import BibTexParser, logger
-from logging import NullHandler
-logger.addHandler(NullHandler())
+import bibtexparser
 
-non_local_fields = ['address',
+import logging
+from logging import NullHandler
+logging.basicConfig(format='\033[1m\033[33m%(levelname)s:\033[0m %(message)s')
+
+from bibtexparser.bparser import BibTexParser, logger
+from bibtexparser.bibdatabase import BibDatabase
+from bibtexparser.bwriter import BibTexWriter
+from bibtexparser.customization import convert_to_unicode, homogenize_latex_encoding
+logger.setLevel(logging.ERROR)
+
+# fix missing standard types
+bibtexparser.bibdatabase.STANDARD_TYPES.add("collection")
+bibtexparser.bibdatabase.STANDARD_TYPES.add("periodical")
+
+NON_LOCAL_FIELDS = ['address',
                     'annote',
                     'author',
                     'booktitle',
@@ -40,44 +60,55 @@ non_local_fields = ['address',
                     'year',
                   ]
 
-def dict2bib(ke,di):
-   # it seems the type field changed between different bibtexparser versions
-   try:
-      b = "@"+di['type'].upper()+"{"+ke+",\n"
-   except KeyError:
-      b = "@"+di['ENTRYTYPE'].upper()+"{"+ke+",\n"
+def prune(entry):
+   """
+      prune(entry)
 
-   for (k, v) in sorted(di.iteritems()):
-      if k.lower().strip() in non_local_fields:
-         if k == 'link':
-            k = 'url'
-         b += '\t' + k + ' = {'+v+'},\n'
-   b += '}\n'
-   return b
+   Remove local fields from a BibTeX entry.
+
+   Local fields include things like "date-added" and references to document
+   storage.
+
+   This function uses `NON_LOCAL_FIELDS` as a whitelist, instead of
+   blacklisting local fields.
+   """
+   keepers = NON_LOCAL_FIELDS + ['ID', 'ENTRYTYPE'] # bibtexparser fields
+   return {field:value for field, value in entry.items() if field in keepers}
+
+argparser = argparse.ArgumentParser(
+   description="Extract minimal BibTeX entries from a large bibliography")
+argparser.add_argument('keylist', type=open,
+   help="Filename of a newline delimited list of BibTeX keys")
+argparser.add_argument('bibfile', type=open,
+   help="BibTeX file to extract entries from")
+argparser.add_argument('outfile', type=argparse.FileType('w', encoding='UTF-8'),
+   help="Destination file for extracted keys (will be overwritten")
+# TODO expose addition bibtexparser options, e.g.
+# parser = BibTexParser(common_strings=False)
+# parser.ignore_nonstandard_types = False
+# parser.homogenise_fields = False
+# allow for more verbose logging
+
+def main(argv=None):
+    args = argparser.parse_args(argv)
+
+    keys = [_.rstrip() for _ in args.keylist.readlines()]
+
+    bibparser = BibTexParser(common_strings=True)
+    bibparser.customization = convert_to_unicode
+
+    allrefs = bibtexparser.load(args.bibfile, parser=bibparser).get_entry_dict()
+    usedrefs = BibDatabase()
+    usedrefs.entries = [prune(allrefs[key]) for key in keys if key in allrefs]
+
+    missing = [key for key in keys if key not in allrefs]
+
+    if missing:
+        logging.warning("Following keys not found: {}".format(', '.join(missing)))
+
+    writer = BibTexWriter()
+    #writer.indent = ' ' * 4
+    args.outfile.write(writer.write(usedrefs))
 
 if __name__ == "__main__":
-   ## Check the number of arguments
-   if len(sys.argv) != 4:
-      raise ValueError("Wrong number of arguments")
-   else :
-      key_list = sys.argv[1]
-      bib_file = sys.argv[2]
-      out_file = sys.argv[3]
-   ## The three arguments should be strings
-   if not isinstance(key_list, str):
-      raise TypeError("The path to the list of keys should be a string")
-   if not isinstance(bib_file, str):
-      raise TypeError("The path to the bibtex library should be a string")
-   if not isinstance(out_file, str):
-      raise TypeError("The path to the output bibtex file should be a string")
-   ## Step 1 - read the key list
-   keys = [kl.rstrip(":\n") for kl in open(key_list, 'r')]
-   ## Step 2 - read the library file
-   refs = BibTexParser(open(bib_file, 'r').read()).get_entry_dict()
-   ## Step 3 - extract the used entries
-   used_refs = {key: refs[key] for key in keys if key in refs}
-   ## Step 4 - convert the dicts back into bibtex
-   refs_as_bib = [dict2bib(k, v) for (k, v) in used_refs.iteritems()]
-   ## Step 5 - write the output file
-   with codecs.open(out_file, 'w', 'utf-8-sig') as of:
-      of.writelines(refs_as_bib)
+   sys.exit(main())
