@@ -1,0 +1,14 @@
+name: futhark
+channels:
+  - defaults
+dependencies:
+  - pandoc>=2.0
+  - pip
+  - python>=3.5
+  - pip:
+    - bibtexparser==1.2.0
+    - pandoc-eqnos==2.5.0
+    - pandoc-fignos==2.4.0
+    - pandoc-tablenos==2.3.0
+    - pandoc-xnos==2.5.0
+    - pandocfilters==1.4.3
