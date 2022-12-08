@@ -1,5 +1,5 @@
 bibtexparser==1.2.0
-certifi==2020.12.5
+certifi==2022.12.7
 future==0.18.2
 pandoc-eqnos==2.5.0
 pandoc-fignos==2.4.0
