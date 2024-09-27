@@ -18,6 +18,7 @@ library ?= /path/to/library
 paper ?= article
 mdflags ?= -f markdown-hard_line_breaks+yaml_metadata_block
 refs ?= $(paper).bib
+diffbase ?= main
 
 draft: $(paper).pdf
 	cp $(paper).pdf $(paper)_`git show -s --format=%ci HEAD | awk '{print $$1}'`_`git rev-parse --short HEAD`.pdf
@@ -32,6 +33,14 @@ $(paper).tex: $(paper).md $(texdeps) $(figdeps) $(refs) $(supplementary).tex tem
 
 %.md: %.Rmd
 	echo 'knitr::knit("$*.Rmd")' | R --vanilla
+
+bolddiff: bolddiff.pdf
+
+bolddiff.md: $(paper).md hg-diff-md.py
+	git blame -s $(paper).md | $(python) git-diff-md.py $(diffbase) - $@
+
+bolddiff.pdf: bolddiff.md $(refs) $(latex_template) $(deps)
+	pandoc $(mdflags) $(pdfflags) --template=$(latex_template) --bibliography=$(refs) $< -o $@
 
 clean:
 	rm -rf $(paper).{pdf,html,odt,docx}
